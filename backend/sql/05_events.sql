@@ -1,0 +1,23 @@
+-- ─────────────────────────────────────────────────────────────
+-- AgriAI — Events / Scheduled Jobs
+-- ─────────────────────────────────────────────────────────────
+-- NOTE: This project uses SQL Server, NOT MySQL.
+-- MySQL uses EVENT SCHEDULER for scheduled tasks.
+-- SQL Server equivalent is SQL Server Agent Jobs.
+--
+-- All scheduled jobs for AgriAI are defined in:
+--   05_sqlagent.sql
+--
+-- Jobs created there:
+--   1. AgriAI_Nightly_Summary  — runs midnight daily
+--      Calls sp_aggregate_daily_summary()
+--
+--   2. AgriAI_Memory_Decay     — runs every Sunday 1 AM
+--      Decays agent_memory confidence scores by 15%
+--      for memories not reinforced in 14+ days
+--
+--   3. AgriAI_Cleanup_Alerts   — runs 2 AM daily
+--      Deletes resolved alerts older than 30 days
+--
+-- To set up these jobs, run 05_sqlagent.sql in SSMS.
+-- ─────────────────────────────────────────────────────────────

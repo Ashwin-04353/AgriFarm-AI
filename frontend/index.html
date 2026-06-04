@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>AgriAI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module"
+    src="https://unpkg.com/@splinetool/viewer@1.9.28/build/spline-viewer.js">
+  </script>
+</head>
+<body class="bg-gray-950 text-white h-screen overflow-hidden">
+
+  <div class="absolute inset-0 z-0">
+    <spline-viewer
+      url="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode"
+      class="w-full h-full">
+    </spline-viewer>
+  </div>
+
+  <nav class="relative z-10 flex items-center justify-between px-10 py-5">
+    <div class="text-green-400 font-bold text-lg">🌿 AgriAI</div>
+    <div class="flex gap-3">
+      <a href="src/pages/login.html"
+         class="border border-gray-600 hover:border-gray-300
+                px-4 py-1.5 rounded-lg text-sm transition">Login</a>
+      <a href="src/pages/register.html"
+         class="bg-green-600 hover:bg-green-500
+                px-4 py-1.5 rounded-lg text-sm transition">Register</a>
+    </div>
+  </nav>
+
+  <div class="relative z-10 flex flex-col items-center
+              justify-center h-4/5 text-center px-6">
+    <div class="bg-gray-950/70 backdrop-blur-md rounded-2xl p-10
+                max-w-lg border border-gray-700">
+      <p class="text-green-400 text-xs tracking-widest uppercase mb-3">
+        AI-Powered Precision Agriculture
+      </p>
+      <h1 class="text-4xl font-bold mb-4">AgriAI</h1>
+      <p class="text-gray-400 text-sm leading-relaxed mb-8">
+        Real-time field intelligence powered by SQL Server analytics,
+        Groq AI reasoning, and your actual farm data — not simulations.
+        Ask your database anything in plain English.
+      </p>
+      <div class="flex gap-3 justify-center">
+        <a href="src/pages/register.html"
+           class="bg-green-600 hover:bg-green-500 px-6 py-2.5
+                  rounded-lg text-sm font-medium transition">
+          Get Started
+        </a>
+        <a href="src/pages/dashboard.html"
+           class="border border-gray-600 hover:border-gray-300
+                  px-6 py-2.5 rounded-lg text-sm transition">
+          View Demo
+        </a>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

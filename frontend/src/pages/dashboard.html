@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard — AgriAI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-950 text-white min-h-screen flex">
+
+  <aside class="w-56 bg-gray-900 border-r border-gray-800 flex flex-col p-5 min-h-screen">
+    <div class="text-green-400 font-bold mb-8">🌿 AgriAI</div>
+    <nav class="flex flex-col gap-1 text-sm flex-1">
+      <a href="dashboard.html"
+         class="bg-green-500/10 text-green-400 px-3 py-2 rounded-lg">Dashboard</a>
+      <a href="map.html"
+         class="text-gray-400 hover:text-white px-3 py-2 rounded-lg">Field Map</a>
+      <a href="fields.html"
+         class="text-gray-400 hover:text-white px-3 py-2 rounded-lg">My Fields</a>
+      <a href="alerts.html"
+         class="text-gray-400 hover:text-white px-3 py-2 rounded-lg">Alerts</a>
+      <a href="query.html"
+         class="text-gray-400 hover:text-white px-3 py-2 rounded-lg">Ask Database</a>
+    </nav>
+    <button id="logoutBtn"
+            class="text-xs text-gray-500 hover:text-red-400 text-left mt-4">
+      Logout
+    </button>
+  </aside>
+
+  <main class="flex-1 p-7 overflow-auto">
+    <div class="flex items-center justify-between mb-7">
+      <h1 class="text-xl font-semibold">Field overview</h1>
+      <label class="bg-green-600 hover:bg-green-500 px-4 py-2
+                    rounded-lg text-sm cursor-pointer transition">
+        Upload CSV
+        <input type="file" id="csvInput" accept=".csv" class="hidden">
+      </label>
+    </div>
+
+    <div class="grid grid-cols-4 gap-4 mb-7">
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div class="text-gray-400 text-xs mb-1">Total fields</div>
+        <div class="text-2xl font-bold" id="statTotal">—</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div class="text-gray-400 text-xs mb-1">Healthy</div>
+        <div class="text-2xl font-bold text-green-400" id="statHealthy">—</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div class="text-gray-400 text-xs mb-1">Warning</div>
+        <div class="text-2xl font-bold text-yellow-400" id="statWarning">—</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div class="text-gray-400 text-xs mb-1">Critical</div>
+        <div class="text-2xl font-bold text-red-400" id="statCritical">—</div>
+      </div>
+    </div>
+
+    <div id="uploadStatus" class="hidden mb-4 text-sm px-4 py-2 rounded-lg"></div>
+
+    <div class="grid grid-cols-3 gap-4 mb-7" id="fieldGrid"></div>
+
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <div class="text-sm text-gray-400 mb-4">
+        Moisture 7-day rolling average
+      </div>
+      <canvas id="trendChart" height="80"></canvas>
+    </div>
+  </main>
+
+  <script type="module">
+    import { apiFetch, clearToken, isLoggedIn } from "../js/api.js"
+    if (!isLoggedIn()) window.location.href = "login.html"
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await apiFetch("/auth/logout", { method: "POST" })
+      clearToken()
+      window.location.href = "../../index.html"
+    })
+
+    const sc = { healthy:"green", warning:"yellow", critical:"red", unknown:"gray" }
+    let chart = null
+
+    async function load() {
+      const fields = await apiFetch("/analytics/dashboard")
+      document.getElementById("statTotal").textContent   = fields.length
+      document.getElementById("statHealthy").textContent =
+        fields.filter(f=>f.health_status==="healthy").length
+      document.getElementById("statWarning").textContent =
+        fields.filter(f=>f.health_status==="warning").length
+      document.getElementById("statCritical").textContent =
+        fields.filter(f=>f.health_status==="critical").length
+
+      document.getElementById("fieldGrid").innerHTML = fields.map(f => `
+        <div class="bg-gray-900 border border-${sc[f.health_status]||"gray"}-500/20
+                    rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div class="font-medium text-sm">${f.field_name}</div>
+            <span class="text-xs px-2 py-0.5 rounded-full
+              bg-${sc[f.health_status]||"gray"}-500/15
+              text-${sc[f.health_status]||"gray"}-400">
+              ${f.health_status}
+            </span>
+          </div>
+          <div class="text-xs text-gray-400 mb-3">
+            ${f.crop_name||"No crop"} · ${f.stage||"—"}
+          </div>
+          <div class="grid grid-cols-3 gap-1 text-xs text-gray-300 mb-3">
+            <div>💧 ${f.moisture_pct??'—'}%</div>
+            <div>⚗️ pH ${f.ph??'—'}</div>
+            <div>🌡 ${f.temperature_c??'—'}°C</div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-red-400">${f.open_alerts} alert(s)</span>
+            <button onclick="runAgent(${f.field_id},this)"
+              class="text-xs bg-green-600/20 hover:bg-green-600/40
+                     text-green-400 px-2 py-1 rounded transition">
+              Run agent ▶
+            </button>
+          </div>
+        </div>`).join("")
+
+      if (fields.length > 0) loadTrend(fields[0].field_id)
+    }
+
+    async function loadTrend(fieldId) {
+      const data = await apiFetch(`/analytics/field/${fieldId}/trends`)
+      const sorted = data.slice().reverse().slice(-20)
+      const labels = sorted.map(d=>(d.recorded_at||"").slice(5,10))
+      const values = sorted.map(d=>parseFloat(d.moisture_7d_rolling_avg)||0)
+      if (chart) chart.destroy()
+      chart = new Chart(document.getElementById("trendChart"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Moisture 7d avg (%)", data: values,
+            borderColor: "#4ade80",
+            backgroundColor: "rgba(74,222,128,0.06)",
+            tension: 0.4, fill: true, pointRadius: 3
+          }]
+        },
+        options: {
+          plugins: { legend: { labels: { color:"#9ca3af", font:{size:11} } } },
+          scales: {
+            x: { ticks:{color:"#6b7280"}, grid:{color:"#1f2937"} },
+            y: { ticks:{color:"#6b7280"}, grid:{color:"#1f2937"} }
+          }
+        }
+      })
+    }
+
+    window.runAgent = async (fieldId, btn) => {
+      btn.textContent = "Running..."
+      btn.disabled = true
+      try {
+        const res = await apiFetch(
+          `/analytics/field/${fieldId}/run-agent`, { method:"POST" })
+        alert(`Advisory:\n${res.advisory.recommendation}\n\n`+
+              `Action: ${res.advisory.action}\n`+
+              `Urgency: ${res.advisory.urgency}`)
+        load()
+      } catch(e) {
+        alert("Agent error: "+e.message)
+      } finally {
+        btn.textContent = "Run agent ▶"
+        btn.disabled = false
+      }
+    }
+
+    document.getElementById("csvInput").addEventListener("change", async (e) => {
+      const file = e.target.files[0]
+      if (!file) return
+      const s = document.getElementById("uploadStatus")
+      s.className = "mb-4 text-sm px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400"
+      s.textContent = "Uploading..."
+      s.classList.remove("hidden")
+      const form = new FormData()
+      form.append("file", file)
+      try {
+        const res = await fetch("http://localhost:8000/upload/soil-readings", {
+          method:"POST",
+          headers:{ Authorization:`Bearer ${localStorage.getItem("agri_token")}` },
+          body: form
+        })
+        const data = await res.json()
+        s.className = "mb-4 text-sm px-4 py-2 rounded-lg bg-green-500/10 text-green-400"
+        s.textContent = `Imported ${data.imported} of ${data.total_rows} rows`
+        load()
+      } catch(e) {
+        s.className = "mb-4 text-sm px-4 py-2 rounded-lg bg-red-500/10 text-red-400"
+        s.textContent = "Upload failed: "+e.message
+      }
+      e.target.value = ""
+    })
+
+    load()
+  </script>
+</body>
+</html>
