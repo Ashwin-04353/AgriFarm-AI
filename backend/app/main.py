@@ -25,7 +25,7 @@ limiter = Limiter(
 app = FastAPI(
     title="AgriAI",
     version="1.0.0",
-    docs_url="/docs" if settings.app_env == "development" else None
+    docs_url="/docs" 
 )
 
 app.state.limiter = limiter
